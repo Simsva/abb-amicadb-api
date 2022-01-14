@@ -1,0 +1,115 @@
+<?php // -*- mode: php; -*-
+// vim: ft=php sw=2 ts=2 et
+
+// Load config
+$config = include("./config/amicadb.php");
+
+// CORS
+header("Access-Control-Allow-Origin: " . $config["origin"]);
+header("Access-Control-Allow-Headers: Authorization, Origin, Content-Type, X-Auth-Token");
+header("Access-Control-Allow-Methods: GET, POST");
+header("Access-Control-Allow-Credentials: true");
+
+// Get input variables
+$api_vars = preg_split("/\//", ltrim($_SERVER["PATH_INFO"], '/'));
+parse_str($_SERVER["QUERY_STRING"], $query_vars);
+
+// Connect to locally hosted Postgres
+$dbconn = pg_connect("dbname=" . $config["dbname"])
+  or die("Could not connect to Postgres: " . pg_last_error());
+
+// Get only specified fields/columns from Postgres query
+// Safer than using user controlled data in the query
+function get_fields($result, $fields) {
+  if (isset($fields) && $fields !== "*") {
+    $fields = preg_split("/,/", $fields);
+
+    $out = array();
+    while ($row = pg_fetch_array($result)) {
+      $parsed_row = array();
+      foreach ($fields as $field) {
+        if (isset($row[$field])) {
+          $parsed_row[$field] = $row[$field];
+        }
+      }
+      $out[] = $parsed_row;
+    }
+  } else {
+    $out = pg_fetch_all($result);
+  }
+  return $out;
+}
+
+function require_post($vars) {
+  foreach($vars as $var) {
+    if(!array_key_exists($var, $_POST)) return false;
+  }
+  return true;
+}
+
+switch ($api_vars[0]) {
+case "token":
+  pg_prepare($dbconn, "add_token", "INSERT INTO tokens VALUES ($1, 0)")
+    or die("Failed to prepare query: " . pg_last_error());
+  pg_prepare($dbconn, "check_token", "SELECT token FROM tokens WHERE token = $1")
+    or die("Failed to prepare query: " . pg_last_error());
+
+  // Generate new unused token
+  while(true) {
+    $token = bin2hex(random_bytes(32));
+    $result = pg_execute($dbconn, "check_token", array($token));
+    $result = pg_fetch_array($result);
+    if(gettype($result) == "boolean") break;
+  }
+  pg_execute($dbconn, "add_token", array($token));
+  echo $token;
+  break;
+
+case "answer":
+  switch($_SERVER["REQUEST_METHOD"]) {
+  case "GET":
+    pg_prepare($dbconn, "get_answer", "SELECT * FROM answer_unix")
+      or die("Failed to prepare query: " . pg_last_error());
+    $result = pg_execute($dbconn, "get_answer", array());
+
+    $data = json_encode(get_fields($result, $query_vars["fields"]??null));
+    if($data == "null") http_response_code(404);
+    echo $data;
+    break;
+
+  case "POST":
+    if(require_post(array("sleep", "sleep_time", "token"))) {
+      pg_prepare($dbconn, "check_time", "SELECT * FROM tokens WHERE token=$1")
+        or die("Failed to prepare query: " . pg_last_error());
+      $result = pg_execute($dbconn, "check_time", array($_POST["token"]));
+      $result = pg_fetch_array($result);
+      $time = $result["last_time"];
+      if(isset($time)) {
+        if($time > strtotime("today midnight")) {
+          http_response_code(401);
+          die("Already posted today");
+        }
+      } else {
+        http_response_code(404);
+        die("Invalid token");
+      }
+
+      pg_prepare($dbconn, "post_answer", "INSERT INTO answer VALUES (DEFAULT, $1, $2, $3)")
+        or die("Failed to prepare query: " . pg_last_error());
+      pg_execute($dbconn, "post_answer", array($_POST["sleep"], $_POST["sleep_time"], $_POST["token"]));
+
+      pg_prepare($dbconn, "update_time", "UPDATE tokens SET last_time = $1 WHERE token = $2")
+        or die("Failed to prepare query: " . pg_last_error());
+      pg_execute($dbconn, "update_time", array(time(), $_POST["token"]));
+    } else {
+      die("required variables not specified in POST body");
+    }
+    break;
+  }
+  break;
+
+default:
+  http_response_code(400);
+  die("Invalid method: " . $api_vars[0]);
+}
+?>
