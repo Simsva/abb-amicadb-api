@@ -8,228 +8,63 @@
 #+OPTIONS: ^:nil
 #+OPTIONS: toc:3
 
-*This file is just a placeholder*
+An API used by [[https://simsva.se/amica/][our survey about sleep]]. Source code available at [[https://github.com/Simsva/abb-amicadb-api][GitHub]].
 
-An API for use by [[https://github.com/abbs0agaber/GenericMovieDB][our movie database website]]. Source code available at [[https://github.com/Simsva/abb-moviedb-api][GitHub]].
-
-See [[https://github.com/Simsva/abb-moviedb-api/blob/master/nginx_example.conf][nginx_example.conf]] for information on running the API.
+See [[https://github.com/Simsva/abb-amicadb-api/blob/master/nginx_example.conf][nginx_example.conf]] for information on running the API.
 
 * Basic information
-** Path arguments
-Arguments provided at the end of the API URL separated by slashes.
-
-/Example/: ~.../list/arg1/arg2~, where ~arg1~ and ~arg2~ are path arguments.
-
 ** Query arguments
 Arguments provided using the query string at the end of the URL.
 
 /Example/: ~.../entries?fields=name,description&order=score~, where ~fields = name,description~ and ~order = score~ are query arguments.
 
-* TODO Planned [3/4] [75%]
- - [X] Sort entries etc. using the API.
- - [X] Limit row count + offset.
- - [X] Move get, update, add and delete list entry to one API path using different HTTP methods.
- - [ ] Advanced Search
-
 * API Usage
-*Base URL*: [[https://simsva.se/api/moviedb/]] (Or another URL pointed to the same PHP script provided in the repository)
+*Base URL*: [[https://api.simsva.se/amicadb/]] (Or another URL pointed to the same PHP script provided in the repository)
+
 API paths are appended at the end of the *Base URL*.
 
 ** Paths
-*** entries/ (GET)
-Gets data about movie entries.
+*** answer/ (GET)
+Get previous answers.
 
 Returns a list of objects.
 
-**** *Path arguments*:
- 1. *entry id*
-
-    Return data about a single entry as a _single object_.
-
 **** *Query arguments*:
- - *fields*
+- *fields*
 
    Comma separated list of which fields to return.
 
-   /Example/: ~.../entries?fields=name,description~ only returns the name and description fields.
+   /Example/: ~.../entries?fields=t,sleep~ only returns the t and sleep fields.
 
- - *order*
+*** answer/ (POST)
+Submit an answer.
 
-   Order by specified column/field.
+**** HTTP response codes:
+- 200 Successfully submitted.
 
-   /Example/: ~.../entries?order=average_score~
+- 401 Already submitted an answer the current day.
 
- - *order_direction*
-
-   Used in conjunction with *order*, specifies in which direction to order.
-
-   Accepted values: /asc/, /desc/ (default)
-
-   /Example/: ~.../entries?order=name&order_direction=asc~
-
- - *limit*
-
-   Limit the amount of entries to get.
-
- - *offset*
-
-   Start at entry number ~offset~, useful when user with ~limit~.
-
- - *search*
-
-   String to search for in the name or description. Case insensitive.
-
-*** list/ (GET)
-Gets data from a users list.
-
-Returns a list of objects.
-
-**** *Path arguments*:
- 1. *id* (/required/)
-
-    User ID of the list to get.
-
- 2. *entry id*
-
-    Return only the entry with the specified ID from the list as a _single object_.
-
-    Responds with ~404~ if not in list.
-
-**** *Query arguments*:
- - *fields*
-
-   Comma separated list of which fields to return.
-
- - *order*
-
-   Order by specified column/field.
-
-   /Example/: ~.../list/1?order=score~
-
- - *order_direction*
-
-   Used in conjunction with ~order~, specifies in which direction to order.
-
-   Accepted values: /asc/, /desc/ (default)
-
-   /Example/: ~.../list/1?order=name&order_direction=asc~
-
-*** list/ (PATCH)
-Updates an entry in a users list.
-
-**** Path arguments:
- 1. *user id* (/required/)
-
-    User ID of the list to update.
-
- 2. *entry id* (/required/)
-
-    Movie entry ID to update.
-
-**** PATCH arguments:
- - *rewatch*
-
-   Amount of rewatches to set the list entry to.
-
- - *score*
-
-   Score to set the list entry to.
-
- - *review*
-
-   Review to set the list entry to.
-
- - *watch_status*
-
-   Watch status to set the list entry to.
-
-   Allowed values: /watching/, /completed/, /on_hold/, /dropped/, /plan_to_watch/
-
- - *episodes_watched*
-
-   Amount of episodes watched to set the list entry to.
-
-*** list/ (POST)
-Adds an entry to a user's list.
-
-Returns ~404~ if the specified ~entry id~ does not exist.
-Returns ~409~ if the specified ~entry id~ is already in the specified user's list.
-
-**** Path arguments:
- 1. *user id* (/required/)
-
-    The ID of the user whose list the entry should be added to.
+- 404 Invalid token provided.
 
 **** POST arguments:
- - *id* (/required/)
+- *sleep* (/required/)
 
-   The ID of the entry to add to the list.
+  How well you have slept from 0 to 10.
 
-*** list/ (DELETE)
-Remove an entry from a user's list.
+- *sleep_time* (/required/)
 
-Returns ~404~ if the specified ~entry id~ does not exist in the list.
+  How much time you have slept.
+  - 0 hours: 0
+  - 1-3 hours: 1
+  - 4-6 hours: 2
+  - 7-9 hours: 3
+  - 10+ hours: 4
 
-**** Path arguments:
- 1. *user id* (/required/)
+- *token* (/required/)
 
-    The ID of the user whose list the entry should be removed from.
+  Your token generated by ~token/~.
 
- 2. *entry id* (/required/)
+*** token/ (GET)
+Generate a new token.
 
-    The ID of the entry to remove from the list.
-
-*** users/ (GET)
-Returns info about a user.
-
-Returns an object.
-
-**** *Query arguments*:
- - *id* (/one required/)
-
-   Returns info about the user with the specified id.
-
- - *name* (/one required/)
-
-   Returns info about the user with the specified name.
-
- - *email* (/one required/)
-
-   Returns info about the user with the specified e-mail.
-
- - *fields*
-
-   Comma separated list of which fields to return.
-
-*** check_auth/ (GET)
-Returns the authenticated user id, or ~401~ if not authenticated.
-
-*** reviews/ (GET)
-Get all reviews for an entry.
-
-Returns a list of objects with fields: /user_id/, /username/, /review/.
-
-**** Path arguments:
- 1. *entry id* (/required/)
-
-    The ID of thje entry whose reviews to get.
-
-**** Query arguments:
- - *fields*
-
-   Comma separated list of which fields to return.
-
-*** stats/ (GET)
-Get statistics for a user.
-
-Returns an object.
-
-**** Path arguments:
- 1. *user id* (/required/)
-
-    The ID of the user whose statistics to get.
-
-**** *Query arguments*:
- - *fields*
-
-   Comma separated list of which fields to return.
+Returns a 64 character hexadecimal string.
