@@ -102,6 +102,7 @@ case "answer":
         or die("Failed to prepare query: " . pg_last_error());
       pg_execute($dbconn, "update_time", array(time(), $_POST["token"]));
     } else {
+      http_response_code(400);
       die("required variables not specified in POST body");
     }
     break;
