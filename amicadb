@@ -78,7 +78,7 @@ case "answer":
     break;
 
   case "POST":
-    if(require_post(array("sleep", "sleep_time", "token"))) {
+    if(require_post(array("sleep", "sleep_time", "age", "gender", "token"))) {
       pg_prepare($dbconn, "check_time", "SELECT * FROM tokens WHERE token=$1")
         or die("Failed to prepare query: " . pg_last_error());
       $result = pg_execute($dbconn, "check_time", array($_POST["token"]));
@@ -94,9 +94,9 @@ case "answer":
         die("Invalid token");
       }
 
-      pg_prepare($dbconn, "post_answer", "INSERT INTO answer VALUES (DEFAULT, $1, $2, $3)")
+      pg_prepare($dbconn, "post_answer", "INSERT INTO answer VALUES (DEFAULT, $1, $2, $3, $4, $5)")
         or die("Failed to prepare query: " . pg_last_error());
-      pg_execute($dbconn, "post_answer", array($_POST["sleep"], $_POST["sleep_time"], $_POST["token"]));
+      pg_execute($dbconn, "post_answer", array($_POST["sleep"], $_POST["sleep_time"], $_POST["token"], $_POST["age"], $_POST["gender"]));
 
       pg_prepare($dbconn, "update_time", "UPDATE tokens SET last_time = $1 WHERE token = $2")
         or die("Failed to prepare query: " . pg_last_error());
